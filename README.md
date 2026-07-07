@@ -4,8 +4,8 @@
 
 [![](https://raw.githubusercontent.com/samolego/Canta/master/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png)](https://samolego.github.io/Canta/)
 
-Uninstall any\* app without root!
-Powered by [Shizuku](https://shizuku.rikka.app/) ([Android 16 fork](https://github.com/thedjchi/Shizuku)).
+Uninstall any\* app — with or without root!
+Powered by [Shizuku](https://shizuku.rikka.app/) ([Android 16 fork](https://github.com/thedjchi/Shizuku)) & Root (Magisk/KernelSU).
 
 
 ## Download
@@ -31,10 +31,12 @@ Powered by [Shizuku](https://shizuku.rikka.app/) ([Android 16 fork](https://gith
 
 ## 📖 About
 
-Canta allows you to **uninstall pre-installed or user apps without root**, by leveraging [Shizuku](https://shizuku.rikka.app/).  
+Canta allows you to **uninstall pre-installed or user apps**, by leveraging [Shizuku](https://shizuku.rikka.app/) or **Root** (Magisk/KernelSU).  
 It integrates with the [Universal Debloat List](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation/) to provide safe recommendations.
 
-- ✅ No root required  
+- ✅ No root required (Shizuku mode)
+- ✅ Root support (Magisk / KernelSU / su)
+- ✅ Three privilege modes: Auto, Shizuku, Root
 - ✅ Detects previously uninstalled apps (even across reinstalls)  
 - ✅ Works on Android **9.0+ (SDK 28+)**
 - ⚠️ No *permanent* bricking (If you uninstall **critical apps**, you can experience bootloop and have to **factory reset**!)
@@ -60,6 +62,7 @@ You can verify the authenticity of downloaded APKs using this SHA-256 certificat
 
 ## How-to
 
+### Shizuku Mode (No Root)
 * install [Shizuku](https://play.google.com/store/apps/details?id=moe.shizuku.privileged.api)
   & [activate it](https://shizuku.rikka.app/guide/setup/)
     * you can
@@ -67,6 +70,20 @@ You can verify the authenticity of downloaded APKs using this SHA-256 certificat
       * note: **Android 16** might need [forked version](https://github.com/thedjchi/Shizuku)
 * install Canta
 * select an app and click the trash button
+
+### Root Mode (Magisk / KernelSU)
+* root your device with [Magisk](https://github.com/topjohnwu/Magisk) or [KernelSU](https://kernelsu.org/)
+* install Canta
+* go to **Settings** → **Privilege mode** → select **Root** (or **Auto**)
+* grant root permission when prompted
+* select an app and click the trash button
+
+### Privilege Modes
+| Mode | Description |
+|------|-------------|
+| **Auto** | Try Shizuku first, fall back to root if available |
+| **Shizuku** | Use Shizuku only (requires Shizuku app) |
+| **Root** | Use root (su) only (requires Magisk/KernelSU) |
 
 
 ## Translations
