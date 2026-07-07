@@ -61,6 +61,7 @@ import io.github.samolego.canta.ui.component.CantaTopBar
 import io.github.samolego.canta.ui.component.fab.PresetEditFAB
 import io.github.samolego.canta.ui.dialog.ExplainBadgesDialog
 import io.github.samolego.canta.ui.dialog.NoWarrantyDialog
+import io.github.samolego.canta.ui.dialog.RootRequirementDialog
 import io.github.samolego.canta.ui.dialog.ShizukuRequirementDialog
 import io.github.samolego.canta.ui.dialog.SuccessDialog
 import io.github.samolego.canta.ui.dialog.UninstallAppsDialog
@@ -83,6 +84,7 @@ private const val secretTaps = 12
 
 @Composable
 fun CantaApp(
+    privilegedMode: Int,
     canResetAppToFactory: (String) -> Boolean,
     uninstallApp: (String, Boolean) -> Boolean,
     reinstallApp: (String) -> Boolean,
@@ -101,6 +103,7 @@ fun CantaApp(
         composable(Screen.Main.route) {
             val presetSaveError = stringResource(R.string.preset_save_error)
             MainContent(
+                privilegedMode = privilegedMode,
                 canResetAppToFactory = canResetAppToFactory,
                 uninstallApp = uninstallApp,
                 reinstallApp = reinstallApp,
@@ -188,6 +191,7 @@ fun CantaApp(
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun MainContent(
+    privilegedMode: Int,
     canResetAppToFactory: (String) -> Boolean,
     uninstallApp: (String, Boolean) -> Boolean,
     reinstallApp: (String) -> Boolean,
@@ -358,21 +362,40 @@ private fun MainContent(
                             // However, do not show it if user has disabled the dialog in
                             // settings
                             // or if we are on the "uninstalled" tab
-                            if (!ShizukuPermission.isCantaAuthorized()) {
-                                currentDialog = {
-                                    ShizukuRequirementDialog(
-                                        shizukuStatus =
-                                        ShizukuPermission.checkShizukuActive(
-                                            context.packageManager
-                                        ),
-                                        onClose = { proceed ->
-                                            currentDialog = null
+                            val isAuthorized = when (privilegedMode) {
+                                2 -> io.github.samolego.canta.util.root.RootPermission.isRootGranted() // ROOT mode
+                                1 -> ShizukuPermission.isCantaAuthorized() // SHIZUKU mode
+                                else -> { // AUTO mode: try Shizuku first, then root
+                                    ShizukuPermission.isCantaAuthorized() ||
+                                    io.github.samolego.canta.util.root.RootPermission.isRootGranted()
+                                }
+                            }
 
-                                            if (proceed) {
-                                                uninstallApps()
+                            if (!isAuthorized) {
+                                currentDialog = {
+                                    when (privilegedMode) {
+                                        2 -> RootRequirementDialog(
+                                            onClose = { proceed ->
+                                                currentDialog = null
+                                                if (proceed) {
+                                                    uninstallApps()
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                        else -> ShizukuRequirementDialog(
+                                            shizukuStatus =
+                                            ShizukuPermission.checkShizukuActive(
+                                                context.packageManager
+                                            ),
+                                            onClose = { proceed ->
+                                                currentDialog = null
+
+                                                if (proceed) {
+                                                    uninstallApps()
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
                             } else {
                                 uninstallApps()

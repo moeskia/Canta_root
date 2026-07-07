@@ -13,4 +13,5 @@ message AppSettings {
   bool allow_unsafe_uninstalls = 7;
   bool hide_success_dialog = 8;
   bool auth_enabled = 9;
+  int32 privileged_mode = 10;
 }

@@ -32,6 +32,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -76,6 +79,7 @@ fun SettingsScreen(
     val allowUnsafe by settingsViewModel.allowUnsafeUninstall.collectAsStateWithLifecycle()
     val hideSuccessDialog by settingsViewModel.hideSuccessDialog.collectAsStateWithLifecycle()
     val authEnabled by settingsViewModel.authEnabled.collectAsStateWithLifecycle()
+    val privilegedMode by settingsViewModel.privilegedMode.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -148,6 +152,46 @@ fun SettingsScreen(
                         onSuccess = { settingsViewModel.saveAuthEnabled(it) },
                     )
                 }
+            )
+
+            // Privileged mode selection
+            SettingsItem(
+                title = stringResource(R.string.privileged_mode),
+                description = stringResource(R.string.privileged_mode_description),
+                icon = Icons.Default.Settings,
+            )
+
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                val modeOptions = listOf(
+                    0 to stringResource(R.string.mode_auto),
+                    1 to stringResource(R.string.mode_shizuku),
+                    2 to stringResource(R.string.mode_root)
+                )
+
+                modeOptions.forEachIndexed { index, (modeValue, label) ->
+                    SegmentedButton(
+                        selected = privilegedMode == modeValue,
+                        onClick = { settingsViewModel.savePrivilegedMode(modeValue) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modeOptions.size),
+                        label = { Text(label) }
+                    )
+                }
+            }
+
+            Text(
+                text = when (privilegedMode) {
+                    0 -> stringResource(R.string.mode_auto_description)
+                    1 -> stringResource(R.string.mode_shizuku_description)
+                    2 -> stringResource(R.string.mode_root_description)
+                    else -> ""
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
 
             HorizontalDivider(modifier = Modifier.padding(16.dp))

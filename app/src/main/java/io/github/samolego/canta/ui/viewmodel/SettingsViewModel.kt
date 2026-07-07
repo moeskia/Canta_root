@@ -49,6 +49,9 @@ class SettingsViewModel(
     private val _authEnabled = MutableStateFlow(false)
     val authEnabled = _authEnabled.asStateFlow()
 
+    private val _privilegedMode = MutableStateFlow(0) // 0=auto, 1=shizuku, 2=root
+    val privilegedMode = _privilegedMode.asStateFlow()
+
     init {
         // here this will automatically starts observing and collecting values
         // upon viewModel initialization from the preferences
@@ -65,6 +68,7 @@ class SettingsViewModel(
         observeAllowUnsafeUninstalls()
         observeHideSuccessDialog()
         observeAuthEnabled()
+        observePrivilegedMode()
     }
 
     private fun observeSettings() {
@@ -125,6 +129,13 @@ class SettingsViewModel(
             .launchIn(viewModelScope)
     }
 
+    private fun observePrivilegedMode() {
+        settingsStore
+            .privilegedModeFlow
+            .onEach { _privilegedMode.value = it }
+            .launchIn(viewModelScope)
+    }
+
     private fun observeBloatListUrl() {
         settingsStore.bloatListUrlFlow.onEach { _bloatListUrl.value = it }.launchIn(viewModelScope)
     }
@@ -169,6 +180,10 @@ class SettingsViewModel(
 
     fun saveAuthEnabled(authEnabled: Boolean) {
         viewModelScope.launch { settingsStore.setAuthEnabled(authEnabled) }
+    }
+
+    fun savePrivilegedMode(mode: Int) {
+        viewModelScope.launch { settingsStore.setPrivilegedMode(mode) }
     }
 
     private companion object {

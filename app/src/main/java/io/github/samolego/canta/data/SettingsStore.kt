@@ -30,7 +30,7 @@ class SettingsStore private constructor(context: Context) {
     val hideSuccessDialogFlow = dataStore.data.map { it.hideSuccessDialog }
 
     val authEnabledFlow = dataStore.data.map { it.authEnabled }
-
+    val privilegedModeFlow = dataStore.data.map { it.privilegedMode }
 
     suspend fun setAutoUpdateBloatList(autoUpdate: Boolean) {
         dataStore.updateData { it.toBuilder().setAutoUpdateBloatList(autoUpdate).build() }
@@ -68,7 +68,9 @@ class SettingsStore private constructor(context: Context) {
         dataStore.updateData { it.toBuilder().setAuthEnabled(enabled).build() }
     }
 
-
+    suspend fun setPrivilegedMode(mode: Int) {
+        dataStore.updateData { it.toBuilder().setPrivilegedMode(mode).build() }
+    }
 
     companion object {
         @SuppressLint("StaticFieldLeak") @Volatile private var INSTANCE: SettingsStore? = null

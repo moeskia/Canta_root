@@ -13,19 +13,35 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.samolego.canta.data.SettingsStore
 import io.github.samolego.canta.extension.getInfoForPackage
 import io.github.samolego.canta.ui.CantaApp
 import io.github.samolego.canta.ui.theme.CantaTheme
 import io.github.samolego.canta.util.LogUtils
+import io.github.samolego.canta.util.root.RootPackageInstallerUtils
 import io.github.samolego.canta.util.shizuku.ShizukuPackageInstallerUtils
+import io.github.samolego.canta.util.shizuku.ShizukuPermission
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
 
 const val SHIZUKU_PACKAGE_NAME = "moe.shizuku.privileged.api"
 const val APP_NAME = "Canta"
 const val packageName = "io.github.samolego.canta"
+
+/**
+ * Enum representing the privileged mode for package operations.
+ */
+enum class PrivilegedMode {
+    AUTO,       // Try Shizuku first, fall back to root
+    SHIZUKU,    // Use Shizuku only
+    ROOT        // Use root (su) only
+}
 
 class MainActivity : FragmentActivity() {
 
@@ -41,14 +57,18 @@ class MainActivity : FragmentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    val settingsStore = SettingsStore.getInstance()
+                    val privilegedMode by settingsStore.privilegedModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+
                     CantaApp(
+                        privilegedMode = privilegedMode,
                         uninstallApp = { packageName, resetToFactory ->
-                            uninstallApp(packageName, resetToFactory)
+                            uninstallApp(packageName, resetToFactory, PrivilegedMode.entries[privilegedMode])
                         },
                         canResetAppToFactory = { packageName ->
-                            checkIfCanResetToFactory(packageName)
+                            checkIfCanResetToFactory(packageName, PrivilegedMode.entries[privilegedMode])
                         },
-                        reinstallApp = { reinstallApp(it) },
+                        reinstallApp = { reinstallApp(it, PrivilegedMode.entries[privilegedMode]) },
                         closeApp = { finishAndRemoveTask() },
                     )
                 }
@@ -59,21 +79,45 @@ class MainActivity : FragmentActivity() {
     /**
      * Checks if an app can be reset to factory version.
      * @param packageName package name of the app to check
+     * @param mode the privileged mode to use
      * @return true if the app is a system app with updates
      */
-    private fun checkIfCanResetToFactory(packageName: String): Boolean {
-        val appInfo = packageManager.getInfoForPackage(packageName)?.applicationInfo ?: return false
-        val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-        val hasUpdates = (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-        return isSystem && hasUpdates
+    private fun checkIfCanResetToFactory(packageName: String, mode: PrivilegedMode): Boolean {
+        return when (mode) {
+            PrivilegedMode.ROOT -> RootPackageInstallerUtils.canResetToFactory(packageName, packageManager)
+            else -> {
+                val appInfo = packageManager.getInfoForPackage(packageName)?.applicationInfo ?: return false
+                val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                val hasUpdates = (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+                isSystem && hasUpdates
+            }
+        }
     }
 
     /**
-     * Uninstalls app using Shizuku.
+     * Uninstalls app using Shizuku or root.
      * @param packageName package name of the app to uninstall
      * @param resetToFactory whether to reset system app to factory version before uninstall
+     * @param mode the privileged mode to use (AUTO, SHIZUKU, or ROOT)
      */
-    private fun uninstallApp(packageName: String, resetToFactory: Boolean = false): Boolean {
+    private fun uninstallApp(packageName: String, resetToFactory: Boolean = false, mode: PrivilegedMode = PrivilegedMode.AUTO): Boolean {
+        // Determine which method to use based on mode and availability
+        val useRoot = when (mode) {
+            PrivilegedMode.ROOT -> true
+            PrivilegedMode.SHIZUKU -> false
+            PrivilegedMode.AUTO -> {
+                // Try Shizuku first, fall back to root
+                !ShizukuPermission.isCantaAuthorized() && RootPackageInstallerUtils.isRootAvailable()
+            }
+        }
+
+        if (useRoot) {
+            val packageInfo = packageManager.getInfoForPackage(packageName) ?: return false
+            val isSystem = (packageInfo.applicationInfo!!.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+            return RootPackageInstallerUtils.uninstallApp(packageName, isSystem, resetToFactory, packageManager)
+        }
+
+        // Shizuku implementation (for SHIZUKU mode or AUTO mode with Shizuku available)
         val packageInfo = packageManager.getInfoForPackage(packageName) ?: return false
         val isSystem = (packageInfo.applicationInfo!!.flags and ApplicationInfo.FLAG_SYSTEM) != 0
         val hasUpdates =
@@ -153,11 +197,27 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * Reinstalls app using Shizuku. See <a
+     * Reinstalls app using Shizuku or root. See <a
      * href="https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/services/core/java/com/android/server/pm/PackageManagerShellCommand.java;drc=bcb2b436bde55ee40050400783a9c083e77ce2fe;l=1408>PackageManagerShellCommand.java</a>
      * @param packageName package name of the app to reinstall (must preinstalled on the phone)
+     * @param mode the privileged mode to use (AUTO, SHIZUKU, or ROOT)
      */
-    private fun reinstallApp(packageName: String): Boolean {
+    private fun reinstallApp(packageName: String, mode: PrivilegedMode = PrivilegedMode.AUTO): Boolean {
+        // Determine which method to use based on mode and availability
+        val useRoot = when (mode) {
+            PrivilegedMode.ROOT -> true
+            PrivilegedMode.SHIZUKU -> false
+            PrivilegedMode.AUTO -> {
+                // Try Shizuku first, fall back to root
+                !ShizukuPermission.isCantaAuthorized() && RootPackageInstallerUtils.isRootAvailable()
+            }
+        }
+
+        if (useRoot) {
+            return RootPackageInstallerUtils.reinstallApp(packageName)
+        }
+
+        // Shizuku implementation (for SHIZUKU mode or AUTO mode with Shizuku available)
         val installReason = PackageManager.INSTALL_REASON_UNKNOWN
         val broadcastIntent = Intent("io.github.samolego.canta.INSTALL_RESULT_ACTION")
         val intent =
